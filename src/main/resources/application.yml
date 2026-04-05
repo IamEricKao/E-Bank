@@ -1,0 +1,23 @@
+server:
+  port: ${PORT}
+
+spring:
+  application:
+    name: eBank
+  config:
+    import: optional:file:.env[.properties]
+
+
+  # 資料庫連線設定
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${LOCAL_DB_URL}
+    username: ${LOCAL_DB_USERNAME}
+    password: ${LOCAL_DB_PASSWORD}
+
+  #JPA/Hibernate
+  jpa:
+    hibernate:
+      # 每次運行程式不會刪除資料表,只會更新資料表
+      ddl-auto: update
+    show-sql: false
