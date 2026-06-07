@@ -8,6 +8,7 @@ import java.util.List;
 
 @Data
 public class RegistrationRequest {
+
     @NotBlank(message = "姓氏不能為空")
     private String firstName;
 

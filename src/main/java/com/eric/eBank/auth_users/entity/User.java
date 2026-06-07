@@ -1,5 +1,6 @@
 package com.eric.eBank.auth_users.entity;
 
+import com.eric.eBank.account.entity.Account;
 import com.eric.eBank.role.entity.Role;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
