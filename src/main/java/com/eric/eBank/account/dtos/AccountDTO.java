@@ -4,6 +4,7 @@ import com.eric.eBank.auth_users.dtos.UserDTO;
 import com.eric.eBank.enums.AccountStatus;
 import com.eric.eBank.enums.AccountType;
 import com.eric.eBank.enums.Currency;
+import com.eric.eBank.transaction.dtos.TransactionDTO;
 import com.eric.eBank.transaction.entity.Transaction;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
