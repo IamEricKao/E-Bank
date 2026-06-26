@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,7 +53,9 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public Response<List<Role>> getAllRole() {
 
-        List<Role> allRoles = roleRepo.findAll();
+        List<Role> allRoles = roleRepo.findAll().stream()
+                .sorted(Comparator.comparing(Role::getId))
+                .toList();
 
         return Response.<List<Role>>builder()
                 .statusCode(HttpStatus.OK.value())
@@ -70,7 +73,7 @@ public class RoleServiceImpl implements RoleService {
 
         roleRepo.deleteById(id);
 
-        return Response.<Void>builder()
+        return Response.builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("角色刪除成功")
                 .build();
