@@ -38,7 +38,6 @@ public class SecurityFilter {
                                 .authenticationEntryPoint(customAuthenticationEntryPoint))
                 .authorizeHttpRequests(req -> req
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/roles/**").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(mag -> mag.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class);
