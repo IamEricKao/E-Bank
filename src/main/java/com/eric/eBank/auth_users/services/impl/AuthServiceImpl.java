@@ -16,7 +16,6 @@ import com.eric.eBank.enums.Currency;
 import com.eric.eBank.exceptions.BadRequestException;
 import com.eric.eBank.exceptions.NotFoundException;
 import com.eric.eBank.notification.dtos.NotificationDTO;
-import com.eric.eBank.notification.entity.Notification;
 import com.eric.eBank.notification.services.NotificationService;
 import com.eric.eBank.res.Response;
 import com.eric.eBank.role.entity.Role;
@@ -156,8 +155,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public Response<?> forgetPassword(String email) {
-        User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new NotFoundException("找不到使用者"));
+        User user = userRepo.findByEmail(email).orElseThrow(() -> new NotFoundException("找不到使用者"));
          passwordResetCodeRepo.deleteByUserId(user.getId());
 
          String code = codeGenerator.generateUniqueCode();

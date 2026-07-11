@@ -17,7 +17,7 @@ import java.security.SecureRandom;
 @RequiredArgsConstructor
 public class CodeGenerator {
 
-    private PasswordResetCodeRepo passwordResetCodeRepo;
+    private final PasswordResetCodeRepo passwordResetCodeRepo;
 
     private static final String ALPHA_NUMBER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 5;
