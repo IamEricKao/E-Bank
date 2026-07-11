@@ -105,8 +105,8 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> accountVars = new HashMap<>();
         accountVars.put("name", savedUser.getFirstName());
         //accountVars.put("accountNumber", savedAccount.getAccountNumber());
-        accountVars.put("accountType", AccountType.SAVINGS.name());
-        accountVars.put("currency", Currency.TWD);
+        accountVars.put("accountType", AccountType.儲蓄存款.name());
+        accountVars.put("currency", Currency.台幣.name());
 
         NotificationDTO  accountNotifiDTO = NotificationDTO.builder()
                 .recipient(savedUser.getEmail())
