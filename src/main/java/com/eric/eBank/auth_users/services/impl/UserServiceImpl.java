@@ -8,7 +8,6 @@ import com.eric.eBank.auth_users.services.UserService;
 import com.eric.eBank.exceptions.BadRequestException;
 import com.eric.eBank.exceptions.NotFoundException;
 import com.eric.eBank.notification.dtos.NotificationDTO;
-import com.eric.eBank.notification.entity.Notification;
 import com.eric.eBank.notification.services.NotificationService;
 import com.eric.eBank.res.Response;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.http.HttpStatusCode;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -71,7 +69,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Response<Page<UserDTO>> getAllUsers(int page, int size) {
-        Page<User> userPage = userRepo.findAll(PageRequest.of(page,size));
+        Page<User> userPage = userRepo.findAll(PageRequest.of(page, size));
         Page<UserDTO> userDTOs = userPage.map(user -> modelMapper.map(user, UserDTO.class));
 
         return Response.<Page<UserDTO>>builder()
@@ -122,7 +120,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public Response<?> uploadProfilePicture(MultipartFile file) {
         User user = getCurrentLoggedInUser();
-        try{
+        try {
 
             Path uploadPath = Path.of(uploadDir);
 
@@ -154,7 +152,7 @@ public class UserServiceImpl implements UserService {
                     .statusCode(HttpStatusCode.OK)
                     .message("成功上傳頭像")
                     .build();
-        }catch (IOException e){
+        } catch (IOException e) {
             throw new RuntimeException(e.getMessage());
         }
     }
