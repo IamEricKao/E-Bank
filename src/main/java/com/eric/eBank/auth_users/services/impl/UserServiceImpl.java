@@ -125,13 +125,16 @@ public class UserServiceImpl implements UserService {
         try{
 
             Path uploadPath = Path.of(uploadDir);
+
             // 路徑不存在及建立
             if (Files.notExists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
 
-            if (user.getProfilePictureUrl() != null && !user.getProfilePictureUrl().isEmpty()) {
-                Path oldFile = Paths.get(user.getProfilePictureUrl());
+            // 已經存在照片則將舊照片刪除
+            String oldProfilePicture = user.getProfilePictureUrl();
+            if (oldProfilePicture != null && !oldProfilePicture.isEmpty()) {
+                Path oldFile = Paths.get(oldProfilePicture);
                 Files.deleteIfExists(oldFile);
             }
 

@@ -37,6 +37,7 @@ public class User {
     private String profilePictureUrl;
     private boolean active = true;
 
+    // 單向多對多關係
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "users_roles",
