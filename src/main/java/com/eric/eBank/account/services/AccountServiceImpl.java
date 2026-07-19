@@ -8,6 +8,8 @@ import com.eric.eBank.auth_users.services.UserService;
 import com.eric.eBank.enums.AccountStatus;
 import com.eric.eBank.enums.AccountType;
 import com.eric.eBank.enums.Currency;
+import com.eric.eBank.exceptions.BadRequestException;
+import com.eric.eBank.exceptions.NotFoundException;
 import com.eric.eBank.res.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,8 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public Account createAccount(AccountType accountType, User user) {
+        log.info("createAccount, 帳戶類別: {}, 建立者: {}", accountType, user.getEmail());
+
         String accountNumber = generateAccountNumber(accountType);
 
         Account account = Account.builder()
@@ -53,6 +57,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public Response<List<AccountDTO>> getMyAccounts() {
         User user = userService.getCurrentLoggedInUser();
+
         List<AccountDTO> accountDTOs = accountRepo.findByUserId(user.getId())
                 .stream()
                 .map(account -> modelMapper.map(account, AccountDTO.class))
@@ -67,7 +72,28 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public Response<?> closeAccount(String accountNumber) {
-        return null;
+        User user = userService.getCurrentLoggedInUser();
+
+        var account = accountRepo.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new NotFoundException("帳戶不存在"));
+
+        if (user.getAccounts().stream().noneMatch(a -> a.getAccountNumber().equals(accountNumber))) {
+            throw new BadRequestException("您沒有權限關閉此帳戶");
+        }
+
+        if (account.getBalance().compareTo(BigDecimal.ZERO) != 0) {
+            throw new BadRequestException("帳戶仍有餘額，無法關閉");
+        }
+
+        account.setAccountStatus(AccountStatus.關閉);
+        account.setCloseAt(LocalDateTime.now());
+        account.setCloseAt(LocalDateTime.now());
+        accountRepo.save(account);
+
+        return Response.builder()
+                .statusCode(HttpStatusCode.OK)
+                .message("帳戶已成功關閉")
+                .build();
     }
 
     private String generateAccountNumber(AccountType accountType) {
@@ -78,6 +104,8 @@ public class AccountServiceImpl implements AccountService {
             accountNumber = "003" + accountType.getCode() + (random.nextInt(9000000) + 1000000);
 
         } while (accountRepo.findByAccountNumber(accountNumber).isPresent());
+
+        log.info("generateAccountNumber, 帳戶號碼: {}", accountNumber);
 
         return accountNumber;
     }

@@ -1,6 +1,7 @@
 package com.eric.eBank.auth_users.services.impl;
 
 import com.eric.eBank.account.entity.Account;
+import com.eric.eBank.account.services.AccountService;
 import com.eric.eBank.auth_users.dtos.LoginRequest;
 import com.eric.eBank.auth_users.dtos.LoginResponse;
 import com.eric.eBank.auth_users.dtos.RegistrationRequest;
@@ -45,7 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
     private final TokenService tokenService;
-    //private final AccountService accountService;
+    private final AccountService accountService;
     private final PasswordResetCodeRepo passwordResetCodeRepo;
     private final CodeGenerator codeGenerator;
 
@@ -54,15 +55,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public Response<String> register(RegistrationRequest request) {
-        List<Role> rolse;
+        List<Role> roles;
         if (request.getRoles() == null || request.getRoles().isEmpty()) {
             Role defaultRole = roleRepo.findByName("CUSTOMER")
-                    .orElseThrow(() -> new BadRequestException("顧客角色不存在"));
-            rolse = Collections.singletonList(defaultRole);
-        }else{
-            rolse = request.getRoles().stream()
+                    .orElseThrow(() -> new BadRequestException("顧客權限不存在"));
+            roles = Collections.singletonList(defaultRole);
+        } else {
+            roles = request.getRoles().stream()
                     .map(roleName -> roleRepo.findByName(roleName)
-                            .orElseThrow(() -> new BadRequestException(" 角色不存在: " + roleName)))
+                            .orElseThrow(() -> new BadRequestException(" 權限不存在: " + roleName)))
                     .toList();
         }
 
@@ -76,17 +77,16 @@ public class AuthServiceImpl implements AuthService {
                 .phoneNumber(request.getPhoneNumber())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .roles(rolse)
+                .roles(roles)
                 .active(true)
                 .build();
 
         User savedUser = userRepo.save(user);
 
         // 新增帳戶
-        // Account savedAccount = accountService.createdAccount(AccountType.SAVINGS, user);
+        Account savedAccount = accountService.createAccount(AccountType.儲蓄存款, user);
 
         // region 寄送Email
-
         // 歡迎信件
         Map<String, Object> vars = new HashMap<>();
         vars.put("name", savedUser.getFirstName());
@@ -103,25 +103,25 @@ public class AuthServiceImpl implements AuthService {
         // 註冊成功通知
         Map<String, Object> accountVars = new HashMap<>();
         accountVars.put("name", savedUser.getFirstName());
-        //accountVars.put("accountNumber", savedAccount.getAccountNumber());
+        accountVars.put("accountNumber", savedAccount.getAccountNumber());
         accountVars.put("accountType", AccountType.儲蓄存款.name());
         accountVars.put("currency", Currency.台幣.name());
 
-        NotificationDTO  accountNotifiDTO = NotificationDTO.builder()
+        NotificationDTO accountNotiDTO = NotificationDTO.builder()
                 .recipient(savedUser.getEmail())
                 .subject("註冊成功✅")
                 .templateName("account-created")
                 .templateVariables(accountVars)
                 .build();
 
-        notificationService.sendEmail(accountNotifiDTO, savedUser);
+        notificationService.sendEmail(accountNotiDTO, savedUser);
 
         // endregion 寄送Email
 
         return Response.<String>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("註冊成功")
-                //.data("你的帳戶號碼: " + savedAccount.getAccountNumber() + " ，更多資訊請查看您的電子郵件。")
+                .data("你的帳戶號碼: " + savedAccount.getAccountNumber() + " ，更多資訊請查看您的電子郵件。")
                 .build();
 
     }
@@ -134,7 +134,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("帳號錯誤"));
 
-        if(!passwordEncoder.matches(password, user.getPassword())){
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new NotFoundException("密碼錯誤");
         }
 
@@ -156,9 +156,9 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public Response<?> forgetPassword(String email) {
         User user = userRepo.findByEmail(email).orElseThrow(() -> new NotFoundException("找不到使用者"));
-         passwordResetCodeRepo.deleteByUserId(user.getId());
+        passwordResetCodeRepo.deleteByUserId(user.getId());
 
-         String code = codeGenerator.generateUniqueCode();
+        String code = codeGenerator.generateUniqueCode();
 
         PasswordResetCode resetCode = PasswordResetCode.builder()
                 .code(code)
@@ -228,6 +228,7 @@ public class AuthServiceImpl implements AuthService {
     /**
      * 計算驗證碼的過期時間，
      * 預設五小時後過期
+     *
      * @return LocalDateTime
      */
     private LocalDateTime calculateExpiryDate() {
