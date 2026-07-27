@@ -9,7 +9,8 @@ import com.eric.eBank.enums.TransactionType;
 import com.eric.eBank.exceptions.InsufficientBalanceException;
 import com.eric.eBank.exceptions.InvalidTransactionException;
 import com.eric.eBank.exceptions.NotFoundException;
-import com.eric.eBank.notification.repo.NotificationRepo;
+import com.eric.eBank.notification.dtos.NotificationDTO;
+import com.eric.eBank.notification.services.NotificationService;
 import com.eric.eBank.res.Response;
 import com.eric.eBank.transaction.dtos.TransactionDTO;
 import com.eric.eBank.transaction.dtos.TransactionRequest;
@@ -32,7 +33,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepo transactionRepo;
     private final AccountRepo accountRepo;
-    private final NotificationRepo notificationRepo;
+    private final NotificationService notificationService;
     private final UserService userService;
     private final ModelMapper modelMapper;
 
@@ -104,10 +105,10 @@ public class TransactionServiceImpl implements TransactionService {
         String destinationAccountNumber = transactionRequest.getDestinationAccountNumber();
 
         Account sourceAccount = accountRepo.findByAccountNumber(sourceAccountNumber)
-                .orElseThrow(() -> new NotFoundException("找不到轉出帳戶: " + sourceAccountNumber));
+                .orElseThrow(() -> new NotFoundException("找不到付款帳戶: " + sourceAccountNumber));
 
         Account destinationAccount = accountRepo.findByAccountNumber(destinationAccountNumber)
-                .orElseThrow(() -> new NotFoundException("找不到轉入帳戶: " + destinationAccountNumber));
+                .orElseThrow(() -> new NotFoundException("找不到收款帳戶: " + destinationAccountNumber));
 
         if (sourceAccount.getBalance().compareTo(transactionRequest.getAmount()) < 0) {
             throw new InsufficientBalanceException("餘額不足，無法進行轉帳");
@@ -141,10 +142,72 @@ public class TransactionServiceImpl implements TransactionService {
 
         TransactionType transactionType = transaction.getTransactionType();
         if (transactionType == TransactionType.DEPOSIT) {
+
             subject = "存款通知";
-            template = "credit-alter";
+            template = "credit-alert";
 
+            NotificationDTO notificationDTO = NotificationDTO.builder()
+                    .recipient(user.getEmail())
+                    .subject(subject)
+                    .templateName(template)
+                    .templateVariables(templateVariables)
+                    .build();
 
+            notificationService.sendEmail(notificationDTO, user);
+        } else if (transactionType == TransactionType.WITHDRAWAL) {
+
+            subject = "入帳通知";
+            template = "debit-alert";
+
+            NotificationDTO notificationDTO = NotificationDTO.builder()
+                    .recipient(user.getEmail())
+                    .subject(subject)
+                    .templateName(template)
+                    .templateVariables(templateVariables)
+                    .build();
+
+            notificationService.sendEmail(notificationDTO, user);
+        } else if (transactionType == TransactionType.TRANSFER) {
+
+            // -start- 寄送轉帳通知給轉出帳戶
+            subject = "轉帳通知";
+            template = "debit-alert";
+
+            NotificationDTO notificationDTO = NotificationDTO.builder()
+                    .recipient(user.getEmail())
+                    .subject(subject)
+                    .templateName(template)
+                    .templateVariables(templateVariables)
+                    .build();
+
+            notificationService.sendEmail(notificationDTO, user);
+            // -end- 寄送轉帳通知給轉出帳戶
+
+            // -start- 寄送轉帳通知給轉入帳戶
+            String destSubject = "入帳通知";
+            String destTemplate = "credit-alert";
+
+            Account destAccount = accountRepo.findByAccountNumber(transaction.getDestinationAccount())
+                    .orElseThrow(() -> new NotFoundException("找不到收款帳戶: " + transaction.getDestinationAccount()));
+            User destUser = destAccount.getUser();
+
+            Map<String, Object> destTemplateVariables = Map.of(
+                    "name", destUser.getFirstName(),
+                    "amount", transaction.getAmount(),
+                    "accountNumber", destAccount.getAccountNumber(),
+                    "date", transaction.getTransactionDate(),
+                    "balance", destAccount.getBalance()
+            );
+
+            NotificationDTO destNotificationDTO = NotificationDTO.builder()
+                    .recipient(destUser.getEmail())
+                    .subject(destSubject)
+                    .templateName(destTemplate)
+                    .templateVariables(destTemplateVariables)
+                    .build();
+
+            notificationService.sendEmail(destNotificationDTO, destUser);
+            // -end- 寄送轉帳通知給轉入帳戶
         }
     }
 }
