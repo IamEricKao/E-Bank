@@ -104,17 +104,17 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> accountVars = new HashMap<>();
         accountVars.put("name", savedUser.getFirstName());
         accountVars.put("accountNumber", savedAccount.getAccountNumber());
-        accountVars.put("accountType", AccountType.SAVINGS.name());
-        accountVars.put("currency", Currency.TWD.name());
+        accountVars.put("accountType", AccountType.SAVINGS.getChinese());
+        accountVars.put("currency", Currency.TWD.getChinese());
 
-        NotificationDTO accountNotiDTO = NotificationDTO.builder()
+        NotificationDTO accountNotificationDTO = NotificationDTO.builder()
                 .recipient(savedUser.getEmail())
                 .subject("註冊成功✅")
                 .templateName("account-created")
                 .templateVariables(accountVars)
                 .build();
 
-        notificationService.sendEmail(accountNotiDTO, savedUser);
+        notificationService.sendEmail(accountNotificationDTO, savedUser);
 
         // endregion 寄送Email
 

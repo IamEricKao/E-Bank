@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>出帳通知</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f9fc;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #2e7d32;
+        }
+
+        .alert {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #555;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>出帳通知</h2>
+    <p><b th:text="${name}"></b>，您好，以下是您的出帳紀錄：</p>
+    <div class="alert">
+        <p>轉出金額: <b>$<span th:text="${amount}"></span></b></p>
+        <p>交易帳戶: <b th:text="${accountNumber}"></b></p>
+        <p>出帳時間: <span th:text="${date}"></span></p>
+        <p>帳戶餘額: <b>$<span th:text="${balance}"></span></b></p>
+    </div>
+    <p>感謝您選擇我們銀行。</p>
+    <div class="footer">
+        © 2026 eBank | 安全的線上銀行
+    </div>
+</div>
+</body>
+</html>

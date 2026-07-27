@@ -1,19 +1,25 @@
 package com.eric.eBank.enums;
 
 public enum AccountType {
-    // 儲蓄存款("01")
-    SAVINGS("01"),
-    // 活期存款("02")
-    CURRENT("02");
+
+    SAVINGS("01", "儲蓄存款"),
+
+    CURRENT("02", "活期存款");
 
 
     private String code;
+    private String chinese;
 
-    AccountType(String code) {
+    AccountType(String code, String chinese) {
         this.code = code;
+        this.chinese = chinese;
     }
 
     public String getCode() {
         return code;
+    }
+
+    public String getChinese() {
+        return chinese;
     }
 }

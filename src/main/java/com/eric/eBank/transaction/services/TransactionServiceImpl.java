@@ -6,6 +6,7 @@ import com.eric.eBank.auth_users.entity.User;
 import com.eric.eBank.auth_users.services.UserService;
 import com.eric.eBank.enums.TransactionStatus;
 import com.eric.eBank.enums.TransactionType;
+import com.eric.eBank.exceptions.BadRequestException;
 import com.eric.eBank.exceptions.InsufficientBalanceException;
 import com.eric.eBank.exceptions.InvalidTransactionException;
 import com.eric.eBank.exceptions.NotFoundException;
@@ -20,6 +21,10 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -72,7 +77,33 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public Response<List<TransactionDTO>> getTransactionsForMyAccount(String accountNumber, int page, int size) {
-        return null;
+
+        User user = userService.getCurrentLoggedInUser();
+
+        Account account = accountRepo.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new NotFoundException("找不到帳戶: " + accountNumber));
+
+        if (!account.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("您無權查看此帳戶的交易紀錄");
+        }
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("transactionDate").descending());
+        Page<Transaction> txns = transactionRepo.findByAccount_AccountNumber(accountNumber, pageable);
+        List<TransactionDTO> transactionDTOS = txns.getContent().stream()
+                .map(transaction -> modelMapper.map(transaction, TransactionDTO.class))
+                .toList();
+
+        return Response.<List<TransactionDTO>>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("交易紀錄，查詢成功")
+                .data(transactionDTOS)
+                .meta(Map.of(
+                        "currentPage", txns.getNumber(),
+                        "totalItems", txns.getTotalElements(),
+                        "totalPages", txns.getTotalPages(),
+                        "pageSize", txns.getSize()
+                ))
+                .build();
     }
 
     private void handleDeposit(TransactionRequest transactionRequest, Transaction transaction) {
@@ -143,7 +174,7 @@ public class TransactionServiceImpl implements TransactionService {
         TransactionType transactionType = transaction.getTransactionType();
         if (transactionType == TransactionType.DEPOSIT) {
 
-            subject = "存款通知";
+            subject = "出帳通知";
             template = "credit-alert";
 
             NotificationDTO notificationDTO = NotificationDTO.builder()
@@ -169,23 +200,23 @@ public class TransactionServiceImpl implements TransactionService {
             notificationService.sendEmail(notificationDTO, user);
         } else if (transactionType == TransactionType.TRANSFER) {
 
-            // -start- 寄送轉帳通知給轉出帳戶
-            subject = "轉帳通知";
-            template = "debit-alert";
+            // region 寄送轉帳通知給轉出帳戶
+            subject = "出帳通知";
+            template = "credit-alert";
 
-            NotificationDTO notificationDTO = NotificationDTO.builder()
+            NotificationDTO sourceNotificationDTO = NotificationDTO.builder()
                     .recipient(user.getEmail())
                     .subject(subject)
                     .templateName(template)
                     .templateVariables(templateVariables)
                     .build();
 
-            notificationService.sendEmail(notificationDTO, user);
-            // -end- 寄送轉帳通知給轉出帳戶
+            notificationService.sendEmail(sourceNotificationDTO, user);
+            // endregion 寄送轉帳通知給轉出帳戶
 
-            // -start- 寄送轉帳通知給轉入帳戶
+            // region 寄送轉帳通知給轉入帳戶
             String destSubject = "入帳通知";
-            String destTemplate = "credit-alert";
+            String destTemplate = "debit-alert";
 
             Account destAccount = accountRepo.findByAccountNumber(transaction.getDestinationAccount())
                     .orElseThrow(() -> new NotFoundException("找不到收款帳戶: " + transaction.getDestinationAccount()));
@@ -207,7 +238,7 @@ public class TransactionServiceImpl implements TransactionService {
                     .build();
 
             notificationService.sendEmail(destNotificationDTO, destUser);
-            // -end- 寄送轉帳通知給轉入帳戶
+            // endregion 寄送轉帳通知給轉入帳戶
         }
     }
 }
