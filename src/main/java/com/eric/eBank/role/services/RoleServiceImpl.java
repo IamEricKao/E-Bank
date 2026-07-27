@@ -37,8 +37,9 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public Response<Role> updateRole(Role roleRequest) {
+
         Role role = roleRepo.findById(roleRequest.getId())
-                .orElseThrow(()->new NotFoundException("角色不存在"));
+                .orElseThrow(() -> new NotFoundException("角色不存在"));
 
         role.setName(roleRequest.getName());
         Role updatedRole = roleRepo.save(role);

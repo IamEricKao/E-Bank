@@ -46,8 +46,8 @@ public class AccountServiceImpl implements AccountService {
                 .balance(BigDecimal.ZERO)
                 .accountType(accountType)
                 .user(user)
-                .currency(Currency.台幣)
-                .accountStatus(AccountStatus.正常)
+                .currency(Currency.TWD)
+                .accountStatus(AccountStatus.ACTIVE)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -85,7 +85,7 @@ public class AccountServiceImpl implements AccountService {
             throw new BadRequestException("帳戶仍有餘額，無法關閉");
         }
 
-        account.setAccountStatus(AccountStatus.關閉);
+        account.setAccountStatus(AccountStatus.CLOSED);
         account.setCloseAt(LocalDateTime.now());
         account.setCloseAt(LocalDateTime.now());
         accountRepo.save(account);

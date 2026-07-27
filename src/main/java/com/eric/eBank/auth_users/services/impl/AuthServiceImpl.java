@@ -84,7 +84,7 @@ public class AuthServiceImpl implements AuthService {
         User savedUser = userRepo.save(user);
 
         // 新增帳戶
-        Account savedAccount = accountService.createAccount(AccountType.儲蓄存款, user);
+        Account savedAccount = accountService.createAccount(AccountType.SAVINGS, user);
 
         // region 寄送Email
         // 歡迎信件
@@ -104,8 +104,8 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> accountVars = new HashMap<>();
         accountVars.put("name", savedUser.getFirstName());
         accountVars.put("accountNumber", savedAccount.getAccountNumber());
-        accountVars.put("accountType", AccountType.儲蓄存款.name());
-        accountVars.put("currency", Currency.台幣.name());
+        accountVars.put("accountType", AccountType.SAVINGS.name());
+        accountVars.put("currency", Currency.TWD.name());
 
         NotificationDTO accountNotiDTO = NotificationDTO.builder()
                 .recipient(savedUser.getEmail())
