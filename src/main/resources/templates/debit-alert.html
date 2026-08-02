@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>入帳通知</title>
+    <title>出帳通知</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -41,12 +41,12 @@
 </head>
 <body>
 <div class="container">
-    <h2>入帳通知</h2>
-    <p><b th:text="${name}"></b>，您好，以下是您的入帳紀錄:</p>
+    <h2>出帳通知</h2>
+    <p><b th:text="${name}"></b>，您好，以下是您的出帳紀錄:</p>
     <div class="alert">
-        <p>轉入金額: <b>$<span th:text="${amount}"></span></b></p>
+        <p>轉出金額: <b>$<span th:text="${amount}"></span></b></p>
         <p>交易帳號: <b th:text="${accountNumber}"></b></p>
-        <p>入帳時間: <span th:text="${date}"></span></p>
+        <p>出帳時間: <span th:text="${date}"></span></p>
         <p>帳戶餘額: <b>$<span th:text="${balance}"></span></b></p>
     </div>
     <p>感謝您選擇我們銀行。</p>

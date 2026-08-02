@@ -1,7 +1,6 @@
 package com.eric.eBank.transaction.entity;
 
 import com.eric.eBank.account.entity.Account;
-import com.eric.eBank.enums.AccountStatus;
 import com.eric.eBank.enums.TransactionStatus;
 import com.eric.eBank.enums.TransactionType;
 import jakarta.persistence.*;
@@ -9,9 +8,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -33,8 +32,9 @@ public class Transaction {
     @Column(nullable = false, length = 20)
     private TransactionType transactionType;
 
+    @CreationTimestamp
     @Column(nullable = false)
-    private LocalDateTime transactionDate = LocalDateTime.now();
+    private LocalDateTime transactionDate;
 
     private String description;
 
@@ -49,6 +49,5 @@ public class Transaction {
     private String sourceAccount;
     // for transfer
     private String destinationAccount;
-
 
 }

@@ -28,6 +28,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -69,7 +70,6 @@ public class TransactionServiceImpl implements TransactionService {
         return Response.<Transaction>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("交易成功")
-                .data(savedTransaction)
                 .build();
 
     }
@@ -162,19 +162,20 @@ public class TransactionServiceImpl implements TransactionService {
 
         String subject;
         String template;
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         Map<String, Object> templateVariables = Map.of(
                 "name", user.getFirstName(),
                 "amount", transaction.getAmount(),
                 "accountNumber", transaction.getAccount().getAccountNumber(),
-                "date", transaction.getTransactionDate(),
+                "date", transaction.getTransactionDate().format(formatter),
                 "balance", transaction.getAccount().getBalance()
         );
 
         TransactionType transactionType = transaction.getTransactionType();
         if (transactionType == TransactionType.DEPOSIT) {
 
-            subject = "出帳通知";
+            subject = "入帳通知";
             template = "credit-alert";
 
             NotificationDTO notificationDTO = NotificationDTO.builder()
@@ -187,7 +188,7 @@ public class TransactionServiceImpl implements TransactionService {
             notificationService.sendEmail(notificationDTO, user);
         } else if (transactionType == TransactionType.WITHDRAWAL) {
 
-            subject = "入帳通知";
+            subject = "出帳通知";
             template = "debit-alert";
 
             NotificationDTO notificationDTO = NotificationDTO.builder()
@@ -202,7 +203,7 @@ public class TransactionServiceImpl implements TransactionService {
 
             // region 寄送轉帳通知給轉出帳戶
             subject = "出帳通知";
-            template = "credit-alert";
+            template = "debit-alert";
 
             NotificationDTO sourceNotificationDTO = NotificationDTO.builder()
                     .recipient(user.getEmail())
@@ -216,7 +217,7 @@ public class TransactionServiceImpl implements TransactionService {
 
             // region 寄送轉帳通知給轉入帳戶
             String destSubject = "入帳通知";
-            String destTemplate = "debit-alert";
+            String destTemplate = "credit-alert";
 
             Account destAccount = accountRepo.findByAccountNumber(transaction.getDestinationAccount())
                     .orElseThrow(() -> new NotFoundException("找不到收款帳戶: " + transaction.getDestinationAccount()));
@@ -226,7 +227,7 @@ public class TransactionServiceImpl implements TransactionService {
                     "name", destUser.getFirstName(),
                     "amount", transaction.getAmount(),
                     "accountNumber", destAccount.getAccountNumber(),
-                    "date", transaction.getTransactionDate(),
+                    "date", transaction.getTransactionDate().format(formatter),
                     "balance", destAccount.getBalance()
             );
 
