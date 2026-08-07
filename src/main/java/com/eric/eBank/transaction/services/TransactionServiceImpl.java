@@ -108,7 +108,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     private void handleDeposit(TransactionRequest transactionRequest, Transaction transaction) {
 
-        Account account = accountRepo.findByAccountNumber(transactionRequest.getAccountNumber())
+        Account account = accountRepo.findByAccountNumberForUpdate(transactionRequest.getAccountNumber())
                 .orElseThrow(() -> new NotFoundException("找不到帳戶: " + transactionRequest.getAccountNumber()));
 
         account.setBalance(account.getBalance().add(transaction.getAmount()));
@@ -118,7 +118,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     private void handleWithdrawal(TransactionRequest transactionRequest, Transaction transaction) {
 
-        Account account = accountRepo.findByAccountNumber(transactionRequest.getAccountNumber())
+        Account account = accountRepo.findByAccountNumberForUpdate(transactionRequest.getAccountNumber())
                 .orElseThrow(() -> new NotFoundException("找不到帳戶: " + transactionRequest.getAccountNumber()));
 
         if (account.getBalance().compareTo(transaction.getAmount()) < 0) {
@@ -132,14 +132,29 @@ public class TransactionServiceImpl implements TransactionService {
 
     private void handleTransfer(TransactionRequest transactionRequest, Transaction transaction) {
 
-        String sourceAccountNumber = transactionRequest.getAccountNumber();
-        String destinationAccountNumber = transactionRequest.getDestinationAccountNumber();
+        String srcAccountNumber = transactionRequest.getAccountNumber();
+        String destAccountNumber = transactionRequest.getDestinationAccountNumber();
 
-        Account sourceAccount = accountRepo.findByAccountNumber(sourceAccountNumber)
-                .orElseThrow(() -> new NotFoundException("找不到付款帳戶: " + sourceAccountNumber));
+        if(srcAccountNumber == null || destAccountNumber == null) {
+            throw new BadRequestException("轉出或轉入帳號不可為空");
+        }
 
-        Account destinationAccount = accountRepo.findByAccountNumber(destinationAccountNumber)
-                .orElseThrow(() -> new NotFoundException("找不到收款帳戶: " + destinationAccountNumber));
+        if(srcAccountNumber.equals(destAccountNumber)) {
+            throw new BadRequestException("不可轉帳至同一個帳戶");
+        }
+
+        boolean order = srcAccountNumber.compareTo(destAccountNumber) < 0;
+        String firstAccountNumber = order ? srcAccountNumber : destAccountNumber;
+        String secAccountNumber = order ? destAccountNumber : srcAccountNumber;
+
+        Account firstAccount = accountRepo.findByAccountNumberForUpdate(firstAccountNumber)
+                .orElseThrow(() -> new NotFoundException("找不到付款帳戶: " + firstAccountNumber));
+
+        Account secAccount = accountRepo.findByAccountNumberForUpdate(secAccountNumber)
+                .orElseThrow(() -> new NotFoundException("找不到收款帳戶: " + secAccountNumber));
+
+        Account sourceAccount = firstAccountNumber.equals(srcAccountNumber) ? firstAccount : secAccount;
+        Account destinationAccount = firstAccountNumber.equals(srcAccountNumber) ? secAccount : firstAccount;
 
         if (sourceAccount.getBalance().compareTo(transactionRequest.getAmount()) < 0) {
             throw new InsufficientBalanceException("餘額不足，無法進行轉帳");
@@ -152,8 +167,8 @@ public class TransactionServiceImpl implements TransactionService {
         accountRepo.save(destinationAccount);
 
         transaction.setAccount(sourceAccount);
-        transaction.setSourceAccount(sourceAccountNumber);
-        transaction.setDestinationAccount(destinationAccountNumber);
+        transaction.setSourceAccount(srcAccountNumber);
+        transaction.setDestinationAccount(destAccountNumber);
     }
 
     public void sendTransactionNotifications(Transaction transaction) {
