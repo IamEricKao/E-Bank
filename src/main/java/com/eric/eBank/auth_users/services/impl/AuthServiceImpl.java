@@ -142,7 +142,7 @@ public class AuthServiceImpl implements AuthService {
 
         LoginResponse loginResponse = LoginResponse.builder()
                 .token(token)
-                .rolse(user.getRoles().stream().map(Role::getName).toList())
+                .roles(user.getRoles().stream().map(Role::getName).toList())
                 .build();
 
         return Response.<LoginResponse>builder()
