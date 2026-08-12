@@ -4,6 +4,7 @@ import com.eric.eBank.account.entity.Account;
 import com.eric.eBank.account.repo.AccountRepo;
 import com.eric.eBank.auth_users.entity.User;
 import com.eric.eBank.auth_users.services.UserService;
+import com.eric.eBank.enums.EntryDirection;
 import com.eric.eBank.enums.TransactionStatus;
 import com.eric.eBank.enums.TransactionType;
 import com.eric.eBank.exceptions.BadRequestException;
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Service;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -49,20 +51,34 @@ public class TransactionServiceImpl implements TransactionService {
 
         TransactionType transactionType = transactionRequest.getTransactionType();
 
-        Transaction transaction = new Transaction();
-        transaction.setTransactionType(transactionType);
-        transaction.setAmount(transactionRequest.getAmount());
-        transaction.setDescription(transactionRequest.getDescription());
+        Transaction savedTransaction;
 
-        switch (transactionType) {
-            case DEPOSIT -> handleDeposit(transactionRequest, transaction);
-            case WITHDRAWAL -> handleWithdrawal(transactionRequest, transaction);
-            case TRANSFER -> handleTransfer(transactionRequest, transaction);
-            default -> throw new InvalidTransactionException("無效的交易類型: " + transactionType);
+        if (transactionType.equals(TransactionType.TRANSFER)) {
+
+            savedTransaction = handleTransfer(transactionRequest);
+
+        } else {
+
+            Transaction transaction = new Transaction();
+            transaction.setTransactionType(transactionType);
+            transaction.setAmount(transactionRequest.getAmount());
+            transaction.setDescription(transactionRequest.getDescription());
+
+            switch (transactionType) {
+                case DEPOSIT -> {
+                    transaction.setEntryDirection(EntryDirection.CREDIT);
+                    handleDeposit(transactionRequest, transaction);
+                }
+                case WITHDRAWAL -> {
+                    transaction.setEntryDirection(EntryDirection.DEBIT);
+                    handleWithdrawal(transactionRequest, transaction);
+                }
+                default -> throw new InvalidTransactionException("無效的交易類型: " + transactionType);
+            }
+
+            transaction.setTransactionStatus(TransactionStatus.SUCCESS);
+            savedTransaction = transactionRepo.save(transaction);
         }
-
-        transaction.setTransactionStatus(TransactionStatus.SUCCESS);
-        Transaction savedTransaction = transactionRepo.save(transaction);
 
         // send email
         sendTransactionNotifications(savedTransaction);
@@ -130,16 +146,35 @@ public class TransactionServiceImpl implements TransactionService {
         accountRepo.save(account);
     }
 
-    private void handleTransfer(TransactionRequest transactionRequest, Transaction transaction) {
+    private Transaction createTransferTxn(
+            TransactionRequest transactionRequest,
+            Account account,
+            EntryDirection entryDirection,
+            String transferRef
+    ) {
+        return Transaction.builder()
+                .amount(transactionRequest.getAmount())
+                .transactionType(TransactionType.TRANSFER)
+                .description(transactionRequest.getDescription())
+                .transactionStatus(TransactionStatus.SUCCESS)
+                .account(account)
+                .sourceAccount(transactionRequest.getAccountNumber())
+                .destinationAccount(transactionRequest.getDestinationAccountNumber())
+                .entryDirection(entryDirection)
+                .transferReference(transferRef)
+                .build();
+    }
+
+    private Transaction handleTransfer(TransactionRequest transactionRequest) {
 
         String srcAccountNumber = transactionRequest.getAccountNumber();
         String destAccountNumber = transactionRequest.getDestinationAccountNumber();
 
-        if(srcAccountNumber == null || destAccountNumber == null) {
+        if (srcAccountNumber == null || destAccountNumber == null) {
             throw new BadRequestException("轉出或轉入帳號不可為空");
         }
 
-        if(srcAccountNumber.equals(destAccountNumber)) {
+        if (srcAccountNumber.equals(destAccountNumber)) {
             throw new BadRequestException("不可轉帳至同一個帳戶");
         }
 
@@ -161,14 +196,30 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         sourceAccount.setBalance(sourceAccount.getBalance().subtract(transactionRequest.getAmount()));
-        accountRepo.save(sourceAccount);
-
         destinationAccount.setBalance(destinationAccount.getBalance().add(transactionRequest.getAmount()));
+
+        accountRepo.save(sourceAccount);
         accountRepo.save(destinationAccount);
 
-        transaction.setAccount(sourceAccount);
-        transaction.setSourceAccount(srcAccountNumber);
-        transaction.setDestinationAccount(destAccountNumber);
+        String transferRef = UUID.randomUUID().toString();
+
+        Transaction debitTxn = createTransferTxn(
+                transactionRequest,
+                sourceAccount,
+                EntryDirection.DEBIT,
+                transferRef
+        );
+
+        Transaction creditTxn = createTransferTxn(
+                transactionRequest,
+                destinationAccount,
+                EntryDirection.CREDIT,
+                transferRef
+        );
+
+        transactionRepo.saveAll(List.of(debitTxn, creditTxn));
+
+        return debitTxn;
     }
 
     public void sendTransactionNotifications(Transaction transaction) {

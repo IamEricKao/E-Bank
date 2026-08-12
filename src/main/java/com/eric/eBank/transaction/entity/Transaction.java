@@ -1,6 +1,7 @@
 package com.eric.eBank.transaction.entity;
 
 import com.eric.eBank.account.entity.Account;
+import com.eric.eBank.enums.EntryDirection;
 import com.eric.eBank.enums.TransactionStatus;
 import com.eric.eBank.enums.TransactionType;
 import jakarta.persistence.*;
@@ -49,5 +50,13 @@ public class Transaction {
     private String sourceAccount;
     // for transfer
     private String destinationAccount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private EntryDirection entryDirection;
+
+    @Column(length = 36)
+    private String transferReference;
+
 
 }
