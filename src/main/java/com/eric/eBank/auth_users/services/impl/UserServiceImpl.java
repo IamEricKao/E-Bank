@@ -41,7 +41,11 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
 
-    private final String uploadDir = "uploads/profile-picture";
+    // 將上傳的檔案放在專案跟目錄下的 uploads/profile-picture 資料夾中
+    //private final String uploadDir = "uploads/profile-picture";
+
+    // 將上傳的檔案放在前端專案的 public 資料夾中, 這樣前端就可以直接訪問圖片
+    private final String uploadDir = "/codeRepo/E-Bank-react/public/profile-picture/";
 
     @Override
     public User getCurrentLoggedInUser() {
@@ -61,21 +65,21 @@ public class UserServiceImpl implements UserService {
 
         UserDTO userDTO = modelMapper.map(user, UserDTO.class);
 
-        if(userDTO.getAccounts() != null){
+        if (userDTO.getAccounts() != null) {
             userDTO.getAccounts().forEach(accountDTO -> {
-                if(accountDTO.getAccountType() != null){
+                if (accountDTO.getAccountType() != null) {
                     accountDTO.setAccountTypeName(accountDTO.getAccountType().getChinese());
                 }
 
-                if(accountDTO.getAccountStatus() != null){
+                if (accountDTO.getAccountStatus() != null) {
                     accountDTO.setAccountStatusName(accountDTO.getAccountStatus().getChinese());
                 }
 
-                if(accountDTO.getTransactions() != null){
+                if (accountDTO.getTransactions() != null) {
                     accountDTO.getTransactions().forEach(transactionDTO -> {
-                       if(transactionDTO.getTransactionType() != null){
+                        if (transactionDTO.getTransactionType() != null) {
                             transactionDTO.setTransactionTypeName(transactionDTO.getTransactionType().getChinese());
-                       }
+                        }
                     });
                 }
             });
@@ -166,7 +170,8 @@ public class UserServiceImpl implements UserService {
             Path filePath = uploadPath.resolve(newFilename);
 
             Files.copy(file.getInputStream(), filePath);
-            user.setProfilePictureUrl(filePath.toString());
+
+            user.setProfilePictureUrl("/profile-picture/" + newFilename);
             userRepo.save(user);
 
             return Response.builder()
