@@ -34,12 +34,16 @@ public class AccountDTO {
 
     private AccountType accountType;
 
+    private String accountTypeName;
+
     @JsonBackReference
     private UserDTO user;
 
     private Currency currency;
 
     private AccountStatus accountStatus;
+
+    private String accountStatusName;
 
     @JsonManagedReference
     private List<TransactionDTO> transactions;

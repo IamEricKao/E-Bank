@@ -24,18 +24,30 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UserDTO {
+
     private Long id;
+
     private String firstName;
+
     private String lastName;
+
     private String phoneNumber;
+
     private String email;
+
     @JsonIgnore
     private String password;
+
     private String profilePictureUrl;
+
     private boolean active;
+
     private List<Role> roles;
+
     @JsonManagedReference
     private List<AccountDTO> accounts;
+
     private LocalDateTime createdAt;
+    
     private LocalDateTime updatedAt;
 }

@@ -29,6 +29,8 @@ public class TransactionDTO {
 
     private TransactionType transactionType;
 
+    private String transactionTypeName;
+
     private LocalDateTime transactionDate = LocalDateTime.now();
 
     private String description;

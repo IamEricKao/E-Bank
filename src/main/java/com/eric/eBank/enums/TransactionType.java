@@ -1,6 +1,15 @@
 package com.eric.eBank.enums;
 
 public enum TransactionType {
-    // 存款, 提款, 轉帳
-    DEPOSIT, WITHDRAWAL, TRANSFER
+    DEPOSIT("存款"),
+    WITHDRAWAL("提款"),
+    TRANSFER("提款");
+
+    private final String chinese;
+
+    TransactionType(String chinese){ this.chinese = chinese; }
+
+    public String getChinese() {
+        return chinese;
+    }
 }

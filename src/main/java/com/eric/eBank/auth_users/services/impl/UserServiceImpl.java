@@ -58,7 +58,28 @@ public class UserServiceImpl implements UserService {
     @Override
     public Response<UserDTO> getMyProfile() {
         User user = getCurrentLoggedInUser();
+
         UserDTO userDTO = modelMapper.map(user, UserDTO.class);
+
+        if(userDTO.getAccounts() != null){
+            userDTO.getAccounts().forEach(accountDTO -> {
+                if(accountDTO.getAccountType() != null){
+                    accountDTO.setAccountTypeName(accountDTO.getAccountType().getChinese());
+                }
+
+                if(accountDTO.getAccountStatus() != null){
+                    accountDTO.setAccountStatusName(accountDTO.getAccountStatus().getChinese());
+                }
+
+                if(accountDTO.getTransactions() != null){
+                    accountDTO.getTransactions().forEach(transactionDTO -> {
+                       if(transactionDTO.getTransactionType() != null){
+                            transactionDTO.setTransactionTypeName(transactionDTO.getTransactionType().getChinese());
+                       }
+                    });
+                }
+            });
+        }
 
         return Response.<UserDTO>builder()
                 .statusCode(HttpStatusCode.OK)
