@@ -112,7 +112,7 @@ public class UserServiceImpl implements UserService {
         String newPassword = updatePasswordRequest.getNewPassword();
 
         if (oldPassword == null || newPassword == null) {
-            throw new BadRequestException("舊密碼和新密碼不能為空");
+            throw new BadRequestException("舊密碼或新密碼不能為空");
         }
 
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
@@ -128,7 +128,7 @@ public class UserServiceImpl implements UserService {
         );
 
         NotificationDTO notificationDTO = NotificationDTO.builder()
-                .subject("密碼已更新")
+                .subject("密碼修改成功")
                 .recipient(user.getEmail())
                 .templateName("password-changed")
                 .templateVariables(templateVariables)
@@ -171,6 +171,10 @@ public class UserServiceImpl implements UserService {
 
             Files.copy(file.getInputStream(), filePath);
 
+            // 將圖片路徑設置為後端可訪問的路徑，這裡假設後端有一個靜態資源映射到 /profile-picture/ 路徑
+            //user.setProfilePictureUrl(uploadDir + newFilename);
+
+            // 將圖片路徑設置為前端可訪問的路徑
             user.setProfilePictureUrl("/profile-picture/" + newFilename);
             userRepo.save(user);
 
