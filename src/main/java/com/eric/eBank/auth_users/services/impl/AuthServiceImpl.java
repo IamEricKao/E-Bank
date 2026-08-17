@@ -183,7 +183,7 @@ public class AuthServiceImpl implements AuthService {
 
         return Response.builder()
                 .statusCode(HttpStatus.OK.value())
-                .message("驗證碼已寄送至您的電子信箱")
+                .message("重置碼已寄送至您的電子信箱")
                 .build();
     }
 
@@ -194,11 +194,11 @@ public class AuthServiceImpl implements AuthService {
         String newPassword = resetPasswordRequest.getNewPassword();
 
         PasswordResetCode resetCode = passwordResetCodeRepo.findByCode(code)
-                .orElseThrow(() -> new NotFoundException("無效的驗證碼"));
+                .orElseThrow(() -> new NotFoundException("無效的重置碼"));
 
         if (resetCode.getExpiryDate().isBefore(LocalDateTime.now())) {
             passwordResetCodeRepo.delete(resetCode);
-            throw new BadRequestException("驗證碼已過期");
+            throw new BadRequestException("重置碼已過期");
         }
 
         User user = resetCode.getUser();
