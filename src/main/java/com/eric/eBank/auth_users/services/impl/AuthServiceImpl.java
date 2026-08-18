@@ -174,7 +174,7 @@ public class AuthServiceImpl implements AuthService {
 
         NotificationDTO notificationDTO = NotificationDTO.builder()
                 .recipient(user.getEmail())
-                .subject("密碼重置")
+                .subject("密碼重設")
                 .templateName("password-reset")
                 .templateVariables(templateVariables)
                 .build();
