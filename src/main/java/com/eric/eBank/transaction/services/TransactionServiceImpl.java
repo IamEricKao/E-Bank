@@ -105,14 +105,19 @@ public class TransactionServiceImpl implements TransactionService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("transactionDate").descending());
         Page<Transaction> txns = transactionRepo.findByAccount_AccountNumber(accountNumber, pageable);
-        List<TransactionDTO> transactionDTOS = txns.getContent().stream()
+        List<TransactionDTO> transactionDTOs = txns.getContent().stream()
                 .map(transaction -> modelMapper.map(transaction, TransactionDTO.class))
                 .toList();
+        if (!transactionDTOs.isEmpty()) {
+            transactionDTOs.forEach(transactionDTO -> {
+                transactionDTO.setTransactionTypeName(transactionDTO.getTransactionType().getChinese());
+            });
+        }
 
         return Response.<List<TransactionDTO>>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("交易紀錄，查詢成功")
-                .data(transactionDTOS)
+                .data(transactionDTOs)
                 .meta(Map.of(
                         "currentPage", txns.getNumber(),
                         "totalItems", txns.getTotalElements(),

@@ -57,6 +57,5 @@ public class Transaction {
 
     @Column(length = 36)
     private String transferReference;
-
-
+    
 }

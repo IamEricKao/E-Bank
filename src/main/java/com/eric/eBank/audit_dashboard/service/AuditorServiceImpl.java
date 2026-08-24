@@ -42,21 +42,51 @@ public class AuditorServiceImpl implements AuditorService {
     public Optional<UserDTO> findUserByEmail(String email) {
 
         return userRepo.findByEmail(email)
-                .map(user -> modelMapper.map(user, UserDTO.class));
+                .map(user -> {
+                    UserDTO userDTO = modelMapper.map(user, UserDTO.class);
+
+                    if (userDTO.getAccounts() != null) {
+                        userDTO.getAccounts().forEach(account -> {
+                            if (account.getAccountType() != null) {
+                                account.setAccountTypeName(account.getAccountType().getChinese());
+                            }
+                        });
+                    }
+
+                    return userDTO;
+                });
     }
 
     @Override
     public Optional<AccountDTO> findAccountDetailsByAccountNumber(String accountNumber) {
 
         return accountRepo.findByAccountNumber(accountNumber)
-                .map(account -> modelMapper.map(account, AccountDTO.class));
+                .map(account -> {
+                    AccountDTO accountDTO = modelMapper.map(account, AccountDTO.class);
+
+                    if (accountDTO.getAccountType() != null) {
+                        accountDTO.setAccountTypeName(accountDTO.getAccountType().getChinese());
+                    }
+
+                    return accountDTO;
+                });
     }
 
     @Override
     public List<TransactionDTO> findTransactionsByAccountNumber(String accountNumber) {
 
         return transactionRepo.findByAccount_AccountNumber(accountNumber).stream()
-                .map(transaction -> modelMapper.map(transaction, TransactionDTO.class))
+                .map(transaction -> {
+                    TransactionDTO transactionDTOs = modelMapper.map(transaction, TransactionDTO.class);
+
+                    if (transactionDTOs != null) {
+                        if (transactionDTOs.getTransactionType() != null) {
+                            transactionDTOs.setTransactionTypeName(transactionDTOs.getTransactionType().getChinese());
+                        }
+                    }
+
+                    return transactionDTOs;
+                })
                 .toList();
     }
 
@@ -64,6 +94,14 @@ public class AuditorServiceImpl implements AuditorService {
     public Optional<TransactionDTO> findTransactionById(Long transactionId) {
 
         return transactionRepo.findById(transactionId)
-                .map(transaction -> modelMapper.map(transaction, TransactionDTO.class));
+                .map(transaction -> {
+                    TransactionDTO transactionDTO = modelMapper.map(transaction, TransactionDTO.class);
+
+                    if (transactionDTO.getTransactionType() != null) {
+                        transactionDTO.setTransactionTypeName(transactionDTO.getTransactionType().getChinese());
+                    }
+                    
+                    return transactionDTO;
+                });
     }
 }

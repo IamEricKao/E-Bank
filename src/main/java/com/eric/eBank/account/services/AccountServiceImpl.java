@@ -63,6 +63,12 @@ public class AccountServiceImpl implements AccountService {
                 .map(account -> modelMapper.map(account, AccountDTO.class))
                 .toList();
 
+        if (!accountDTOs.isEmpty()) {
+            accountDTOs.forEach(accountDTO -> {
+                accountDTO.setAccountTypeName(accountDTO.getAccountType().getChinese());
+            });
+        }
+
         return Response.<List<AccountDTO>>builder()
                 .statusCode(HttpStatusCode.OK)
                 .message("成功取得帳戶列表")

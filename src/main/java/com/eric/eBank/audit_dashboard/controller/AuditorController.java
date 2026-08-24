@@ -37,6 +37,7 @@ public class AuditorController {
 
         Optional<UserDTO> userDTO = auditorService.findUserByEmail(email);
 
+
         return userDTO.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
