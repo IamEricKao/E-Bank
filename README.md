@@ -183,6 +183,7 @@ MAIL_PASSWORD=your_gmail_app_password
 ### 啟動方式
 
 > 專案目錄下
+
 Windows：
 
 ```powershell
