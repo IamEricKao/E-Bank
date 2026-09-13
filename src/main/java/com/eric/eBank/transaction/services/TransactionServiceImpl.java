@@ -7,32 +7,36 @@ import com.eric.eBank.auth_users.services.UserService;
 import com.eric.eBank.enums.EntryDirection;
 import com.eric.eBank.enums.TransactionStatus;
 import com.eric.eBank.enums.TransactionType;
-import com.eric.eBank.exceptions.BadRequestException;
-import com.eric.eBank.exceptions.InsufficientBalanceException;
-import com.eric.eBank.exceptions.InvalidTransactionException;
-import com.eric.eBank.exceptions.NotFoundException;
+import com.eric.eBank.exceptions.*;
 import com.eric.eBank.notification.dtos.NotificationDTO;
 import com.eric.eBank.notification.services.NotificationService;
 import com.eric.eBank.res.Response;
 import com.eric.eBank.transaction.dtos.TransactionDTO;
 import com.eric.eBank.transaction.dtos.TransactionRequest;
 import com.eric.eBank.transaction.entity.Transaction;
+import com.eric.eBank.transaction.idempotency.dtos.TransferResultDTO;
+import com.eric.eBank.transaction.idempotency.entity.TransferIdempotencyRecord;
+import com.eric.eBank.transaction.idempotency.repo.TransferIdempotencyRecordRepo;
 import com.eric.eBank.transaction.repo.TransactionRepo;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -44,41 +48,47 @@ public class TransactionServiceImpl implements TransactionService {
     private final NotificationService notificationService;
     private final UserService userService;
     private final ModelMapper modelMapper;
+    private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
+    private final TransferIdempotencyRecordRepo idempotencyRepo;
 
     @Override
     @Transactional
-    public Response<?> createTransaction(TransactionRequest transactionRequest) {
+    public Response<?> createTransaction(TransactionRequest transactionRequest, String idempotencyKey) {
+
+        if (transactionRequest.getTransactionType() != TransactionType.TRANSFER) {
+            return transactionTemplate.execute(status ->
+                    createNonTransferTransaction(transactionRequest)
+            );
+        }
+
+        return createIdempotentTransfer(transactionRequest, idempotencyKey);
+    }
+
+    private Response<?> createNonTransferTransaction(TransactionRequest transactionRequest) {
 
         TransactionType transactionType = transactionRequest.getTransactionType();
-
         Transaction savedTransaction;
 
-        if (transactionType.equals(TransactionType.TRANSFER)) {
+        Transaction transaction = new Transaction();
+        transaction.setTransactionType(transactionType);
+        transaction.setAmount(transactionRequest.getAmount());
+        transaction.setDescription(transactionRequest.getDescription());
 
-            savedTransaction = handleTransfer(transactionRequest);
-
-        } else {
-
-            Transaction transaction = new Transaction();
-            transaction.setTransactionType(transactionType);
-            transaction.setAmount(transactionRequest.getAmount());
-            transaction.setDescription(transactionRequest.getDescription());
-
-            switch (transactionType) {
-                case DEPOSIT -> {
-                    transaction.setEntryDirection(EntryDirection.CREDIT);
-                    handleDeposit(transactionRequest, transaction);
-                }
-                case WITHDRAWAL -> {
-                    transaction.setEntryDirection(EntryDirection.DEBIT);
-                    handleWithdrawal(transactionRequest, transaction);
-                }
-                default -> throw new InvalidTransactionException("無效的交易類型: " + transactionType);
+        switch (transactionType) {
+            case DEPOSIT -> {
+                transaction.setEntryDirection(EntryDirection.CREDIT);
+                handleDeposit(transactionRequest, transaction);
             }
-
-            transaction.setTransactionStatus(TransactionStatus.SUCCESS);
-            savedTransaction = transactionRepo.save(transaction);
+            case WITHDRAWAL -> {
+                transaction.setEntryDirection(EntryDirection.DEBIT);
+                handleWithdrawal(transactionRequest, transaction);
+            }
+            default -> throw new InvalidTransactionException("無效的交易類型: " + transactionType);
         }
+
+        transaction.setTransactionStatus(TransactionStatus.SUCCESS);
+        savedTransaction = transactionRepo.save(transaction);
 
         // send email
         sendTransactionNotifications(savedTransaction);
@@ -87,7 +97,94 @@ public class TransactionServiceImpl implements TransactionService {
                 .statusCode(HttpStatus.OK.value())
                 .message("交易成功")
                 .build();
+    }
 
+    private Response<?> createIdempotentTransfer(TransactionRequest transactionRequest, String idempotencyKey) {
+
+        String key = validateIdempotencyKey(idempotencyKey);
+        String requestHash = calculateRequestHash(transactionRequest);
+        User user = userService.getCurrentLoggedInUser();
+
+        Optional<TransferIdempotencyRecord> existing = idempotencyRepo.findByUserIdAndIdempotencyKey(
+                user.getId(), key);
+
+        if (existing.isPresent()) {
+            return replayOrReject(existing.get(), requestHash);
+        }
+
+        try {
+            return transactionTemplate.execute(status -> {
+
+                TransferIdempotencyRecord record = new TransferIdempotencyRecord();
+                record.setUser(user);
+                record.setIdempotencyKey(key);
+                record.setRequestHash(requestHash);
+
+                idempotencyRepo.saveAndFlush(record);
+
+                Transaction debitTransaction = handleTransfer(transactionRequest);
+
+                Long transferId = debitTransaction.getId();
+                record.setTransferId(transferId);
+                idempotencyRepo.save(record);
+
+                // 只在第一次成功執行轉帳時才發送通知
+                sendTransactionNotifications(debitTransaction);
+
+                return buildTransferResponse(transferId);
+            });
+        } catch (DataIntegrityViolationException ex) {
+            TransferIdempotencyRecord winner = idempotencyRepo.findByUserIdAndIdempotencyKey(user.getId(), key)
+                    .orElseThrow(() -> ex);
+            return replayOrReject(winner, requestHash);
+        }
+    }
+
+    private String validateIdempotencyKey(String value) {
+
+        if (value == null || value.isEmpty()) {
+            throw new BadRequestException("轉帳請求缺少 Idempotency-Key");
+        }
+
+        try {
+            String normalized = UUID.fromString(value).toString();
+
+            if (!normalized.equalsIgnoreCase(value)) {
+                throw new IllegalArgumentException();
+            }
+
+            return normalized;
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Idempotency-Key 必須是合法的 UUID");
+        }
+    }
+
+    private String calculateRequestHash(TransactionRequest request) {
+
+        try {
+            Map<String, Object> values = new TreeMap<>();
+            values.put("transactionType", request.getTransactionType());
+            values.put("accountNumber", request.getAccountNumber());
+            values.put("destinationAccountNumber", request.getDestinationAccountNumber());
+            values.put("amount", request.getAmount().stripTrailingZeros().toPlainString());
+            values.put("description", request.getDescription());
+
+            byte[] json = objectMapper.writeValueAsBytes(values);
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(json);
+
+            return HexFormat.of().formatHex(hash);
+        } catch (JacksonException | NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("無法產生轉帳請求hash", ex);
+        }
+    }
+
+    private Response<?> replayOrReject(TransferIdempotencyRecord record, String requestHash) {
+
+        if (!record.getRequestHash().equals(requestHash)) {
+            throw new IdempotencyConflictException("相同 Idempotency-key 不可用於不同的轉帳內容");
+        }
+
+        return buildTransferResponse(record.getTransferId());
     }
 
     @Override
@@ -151,25 +248,6 @@ public class TransactionServiceImpl implements TransactionService {
         accountRepo.save(account);
     }
 
-    private Transaction createTransferTxn(
-            TransactionRequest transactionRequest,
-            Account account,
-            EntryDirection entryDirection,
-            String transferRef
-    ) {
-        return Transaction.builder()
-                .amount(transactionRequest.getAmount())
-                .transactionType(TransactionType.TRANSFER)
-                .description(transactionRequest.getDescription())
-                .transactionStatus(TransactionStatus.SUCCESS)
-                .account(account)
-                .sourceAccount(transactionRequest.getAccountNumber())
-                .destinationAccount(transactionRequest.getDestinationAccountNumber())
-                .entryDirection(entryDirection)
-                .transferReference(transferRef)
-                .build();
-    }
-
     private Transaction handleTransfer(TransactionRequest transactionRequest) {
 
         String srcAccountNumber = transactionRequest.getAccountNumber();
@@ -225,6 +303,36 @@ public class TransactionServiceImpl implements TransactionService {
         transactionRepo.saveAll(List.of(debitTxn, creditTxn));
 
         return debitTxn;
+    }
+
+    private Transaction createTransferTxn(
+            TransactionRequest transactionRequest,
+            Account account,
+            EntryDirection entryDirection,
+            String transferRef
+    ) {
+        return Transaction.builder()
+                .amount(transactionRequest.getAmount())
+                .transactionType(TransactionType.TRANSFER)
+                .description(transactionRequest.getDescription())
+                .transactionStatus(TransactionStatus.SUCCESS)
+                .account(account)
+                .sourceAccount(transactionRequest.getAccountNumber())
+                .destinationAccount(transactionRequest.getDestinationAccountNumber())
+                .entryDirection(entryDirection)
+                .transferReference(transferRef)
+                .build();
+    }
+
+    private Response<TransferResultDTO> buildTransferResponse(Long transferId) {
+        return Response.<TransferResultDTO>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("交易成功")
+                .data(TransferResultDTO.builder()
+                        .transferId(transferId)
+                        .status(TransactionStatus.SUCCESS)
+                        .build())
+                .build();
     }
 
     public void sendTransactionNotifications(Transaction transaction) {

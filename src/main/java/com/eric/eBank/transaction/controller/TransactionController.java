@@ -16,8 +16,10 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @PostMapping
-    public ResponseEntity<Response<?>> createTransaction(@RequestBody @Valid TransactionRequest transactionRequest) {
-        return ResponseEntity.ok(transactionService.createTransaction(transactionRequest));
+    public ResponseEntity<Response<?>> createTransaction(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody @Valid TransactionRequest transactionRequest) {
+        return ResponseEntity.ok(transactionService.createTransaction(transactionRequest, idempotencyKey));
     }
 
     @GetMapping("/{accountNumber}")

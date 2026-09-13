@@ -57,4 +57,14 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ResponseEntity<Response<?>> handleIdempotencyConflictException(IdempotencyConflictException ex) {
+        Response<?> response = Response.builder()
+                .statusCode(HttpStatus.CONFLICT.value())
+                .message(ex.getMessage())
+                .build();
+
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
 }
