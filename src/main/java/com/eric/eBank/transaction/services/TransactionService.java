@@ -8,7 +8,7 @@ import java.util.List;
 
 
 public interface TransactionService {
-    Response<?> createTransaction(TransactionRequest transactionRequest);
+    Response<?> createTransaction(TransactionRequest transactionRequest, String idempotencyKey);
 
     Response<List<TransactionDTO>> getTransactionsForMyAccount(String accountNumber, int page, int size);
 }
